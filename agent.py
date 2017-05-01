@@ -2,20 +2,64 @@
 from webdecks import DeckGenerator
 from fireplace.utils import random_draft, CardClass
 from hearthstone.enums import PlayState
-from fireplace.exceptions import GameOver
+from fireplace.exceptions import GameOver, InvalidAction
 import random
 import math
 from hearthstate import HearthState, Move, MOVE
 import copy
 from utils import random_play
+import logging
+from fireplace.player import Player
 
 from mcts import uct_search
 
 
 class Agent:
-	def __init__(self, game, player):
-		self.game = game
-		self.player = player
+	name = 'Barebones Agent'
+
+	def __init__(self, card_class: CardClass):
+
+		self.card_class = card_class
+		self._player = None
+		self._deck = None
+		self._game = None
+
+	@classmethod
+	def get_name(cls):
+		return cls.name
+
+	@property
+	def game(self):
+		return self._game
+
+	@game.setter
+	def game(self, value):
+		self._game = value
+
+	@property
+	def deck(self):
+		if self._deck is not None:
+			return self._deck
+		else:
+			self._deck = DeckGenerator().get_random_deck(self.card_class)
+			return self._deck
+
+	@property
+	def hero(self):
+		return self.card_class.default_hero
+
+	@property
+	def player(self):
+		if self._player is not None:
+			return self._player
+		else:
+			self._player = Player(self.name, self.deck, self.hero)
+			return self._player
+
+	def is_playing(self):
+		return self.player.playstate == PlayState.PLAYING and self.game.current_player == self.player
+
+
 
 	def play_turn(self):
 		pass
@@ -46,18 +90,29 @@ class MonteCarloAgent(Agent):
 
 		hs = HearthState(self.game)
 
-		root = uct_search(hs.clone(), timeout=10)
+		logging.getLogger('fireplace').setLevel('WARNING')
+		print("Exploring MCST...", end='')
+		root = uct_search(hs.clone(), timeout=30)
+		print(" done")
+		logging.getLogger('fireplace').setLevel('DEBUG')
 
 		while hs.game.current_player == self.player and self.player.playstate == PlayState.PLAYING:
 			try:
-				root = root.best_child(0)
+				root = root.most_visited_child()
 				move = root.move
 			except ValueError:
-				print("Unexplored Node: Ending Turn")
+				# print("Unexplored Node: Ending Turn")
 				move = Move(MOVE.END_TURN, None, None)
 
-			# print(move.tostring(hs.game))
-			hs.do_move(move)
+			print(move.tostring(hs.game))
+			try:
+				hs.do_move(move)
+			except InvalidAction:
+				# move is no longer valid: moving on to the next best move...
+				invalid_node = root
+				root = root.parent  # going back
+				root.children.remove(invalid_node)
+
 
 	def play_mulligan(self):
 		mull_count = random.randint(0, len(self.player.choice.cards))
@@ -71,24 +126,27 @@ class GameStateAgent(Agent):
 	def play_turn(self):
 
 		hs = HearthState(self.game)
-		valid_moves = hs.get_moves()
+		while hs.game.current_player == self.player and self.player.playstate == PlayState.PLAYING:
 
-		best_score = -math.inf
-		best_move = None
+			valid_moves = hs.get_moves()
 
-		for move in valid_moves:
+			best_score = -math.inf
+			best_move = None
+			logging.getLogger('fireplace').setLevel('WARNING')
+			for move in valid_moves:
 
-			new_state = hs.clone()
-			new_state.do_move(move)
+				new_state = hs.clone()
+				new_state.do_move(move)
 
-			new_score = new_state.get_score(new_state.game.players[1])
-			if new_score > best_score:
-				best_score = new_score
-				best_move = move
+				new_score = new_state.get_score(new_state.game.players[1])
+				if new_score > best_score:
+					best_score = new_score
+					best_move = move
+			logging.getLogger('fireplace').setLevel('DEBUG')
 
-		if best_move is None:
-			self.game.end_turn()
-		hs.do_move(best_move)
+			if best_move is None:
+				self.game.end_turn()
+			hs.do_move(best_move)
 
 	def play_mulligan(self):
 		mull_count = random.randint(0, len(self.player.choice.cards))

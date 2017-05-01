@@ -10,54 +10,51 @@ from hearthstone.enums import CardClass, CardType, PlayState
 from webdecks import DeckGenerator
 import time
 
-from agent import RandomAgent, MonteCarloAgent, GameStateAgent
+from agent import RandomAgent, MonteCarloAgent, GameStateAgent, Agent
 
 
-def setup_game() -> "Game":
-	deck_generator = DeckGenerator()
+def setup_game() -> (Game, (Agent, Agent)):
+	agent1 = MonteCarloAgent(CardClass.WARRIOR)
+	agent2 = GameStateAgent(CardClass.PALADIN)
 
-	deck1 = deck_generator.get_random_deck(CardClass.PALADIN)
-	deck2 = deck_generator.get_random_deck(CardClass.WARRIOR)
+	print(agent1.player, agent2.player)
 
-	player1 = Player("Player1", deck1, CardClass.PALADIN.default_hero)
-	player2 = Player("Player2", deck2, CardClass.WARRIOR.default_hero)
+	game = Game(players=(agent1.player, agent2.player))
 
-	game = Game(players=(player1, player2))
+	agent1.game = game
+	agent2.game = game
+
 	game.start()
-	return game
+
+	return game, (agent1, agent2)
 
 
 def main():
-	game = setup_game()
+	game, agents = setup_game()
 
-	agents = {}
+	agents[0].play_mulligan()
+	agents[1].play_mulligan()
 
-	agents[game.players[0]] = MonteCarloAgent(game, game.players[0])
-	agents[game.players[1]] = GameStateAgent(game, game.players[1])
-
-	for _, agent in agents.items():
-		agent.play_mulligan()
+	agent_playing = None
 
 	try:
 		while True:
-			# time.sleep(1)
-			agents[game.current_player].play_turn()
+			agent_playing = agents[0] if agents[0].is_playing() else agents[1]
+			agent_playing.play_turn()
+
 	except GameOver:
-		for _, agent in agents.items():
-			if agent.player.playstate == PlayState.LOST:
-				print("{} ({}) lost".format(agent.name, agent.player.hero))
-			else:
-				print("{} ({}) won".format(agent.name, agent.player.hero))
-				score[agent.player.name] = score[agent.player.name] + 1
+		print("{} ({}) won".format(agent_playing.name, agent_playing.player.hero))
+		try:
+			score[agent_playing.player.name] = score[agent_playing.player.name] + 1
+		except KeyError:
+			score[agent_playing.player.name] = 1
 
 
 if __name__ == "__main__":
-	logging.getLogger('fireplace').setLevel('WARNING')
+
 	score = dict()
-	score['Player1'] = 0
-	score['Player2'] = 0
 
 	cards.db.initialize()
-	for _ in range(100):
+	for _ in range(10):
 		main()
 		print(score)

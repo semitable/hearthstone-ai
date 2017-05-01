@@ -159,6 +159,11 @@ class Node:
 
 		return best
 
+	def most_visited_child(self):
+		most_visited = lambda u: u.visits
+		best = max(self.children, key=most_visited)
+		return best
+
 
 def uct_search(state: HearthState, timeout=20):
 	graph = nx.DiGraph()
@@ -184,6 +189,8 @@ def uct_search(state: HearthState, timeout=20):
 
 		# back propagation
 		backup(u_next, delta)
+
+	print("Runs: ", root.visits)
 
 	return root
 
@@ -220,10 +227,12 @@ def default_policy(u: Node):
 	if new_state.game.players[0].name == my_name:
 		if new_state.game.players[0].playstate == PlayState.WON:
 			return 1
-		else:
+		elif new_state.game.players[0].playstate == PlayState.LOST:
 			return 0
 	else:
 		if new_state.game.players[1].playstate == PlayState.WON:
 			return 1
-		else:
+		elif new_state.game.players[1].playstate == PlayState.LOST:
 			return 0
+
+	return 0

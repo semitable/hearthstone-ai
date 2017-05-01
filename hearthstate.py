@@ -90,6 +90,8 @@ class HearthState:
 		""" Create a deep clone of this game state.
 		"""
 		game = copy.deepcopy(self.game)
+		game.players[0].shuffle_deck()
+		game.players[1].shuffle_deck()
 		return HearthState(game)
 
 	def calculate_minion_score(self, minion):
@@ -155,6 +157,11 @@ class HearthState:
 				return []
 		valid_moves = []
 
+		if self.game.current_player.choice is not None:
+			for card in range(len(self.game.current_player.choice.cards)):
+				valid_moves.append(Move(MOVE.CHOICE, card, None))
+			return valid_moves
+
 		for card in self.game.current_player.hand:
 			if card.is_playable():
 				if card.requires_target():
@@ -213,8 +220,8 @@ class HearthState:
 				hero = self.game.current_player.hero
 				hero.attack(hero.targets[move.target_index])
 			elif move.type == MOVE.CHOICE:
-				raise NotImplemented("Should Implement choice move")
-			# self.game.current_player.choice.choose(move.card_index)
+				self.game.current_player.choice.choose(
+					self.game.current_player.choice.cards[move.card_index])
 			else:
 				raise NameError("DoMove ran into unclassified card", move)
 		except NameError as e:
