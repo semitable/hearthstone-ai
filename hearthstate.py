@@ -55,11 +55,10 @@ class Move:
 		else:
 			raise NameError("DoMove ran into unclassified card", self)
 
-		#
-		# def __repr__(self):
-		# 	if self.target is None:
-		# 		return "{}: {}".format(self.type, self.card)
-		# 	return "{}: {} on {}".format(self.type, self.card, self.target)
+	def __repr__(self):
+		if self.target_index is None:
+			return "{}: {}".format(self.type, self.card_index)
+		return "{}: {} on {}".format(self.type, self.card_index, self.target_index)
 
 
 class MoveSequence:
@@ -86,6 +85,11 @@ class HearthState:
 	def __init__(self, game):
 		self.game = game
 
+	@property
+	def current_player_id(self):
+		return (0 if self.game.players[0] == self.game.current_player else 1)
+
+
 	def clone(self):
 		""" Create a deep clone of this game state.
 		"""
@@ -93,6 +97,7 @@ class HearthState:
 		game.players[0].shuffle_deck()
 		game.players[1].shuffle_deck()
 		return HearthState(game)
+
 
 	def calculate_minion_score(self, minion):
 		minionScore = minion.atk + minion.health
@@ -126,6 +131,9 @@ class HearthState:
 
 	def get_score(self, player):
 		score = 0
+
+		if self.game.players[0] != player and self.game.players[1] != player:
+			raise ValueError("Invalid Player Reference")
 
 		opponent = self.game.players[1] if self.game.players[0] == player else self.game.players[0]
 

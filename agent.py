@@ -91,9 +91,7 @@ class MonteCarloAgent(Agent):
 		hs = HearthState(self.game)
 
 		logging.getLogger('fireplace').setLevel('WARNING')
-		print("Exploring MCST...", end='')
-		root = uct_search(hs.clone(), timeout=30)
-		print(" done")
+		root = uct_search(hs.clone(), timeout=80)
 		logging.getLogger('fireplace').setLevel('DEBUG')
 
 		while hs.game.current_player == self.player and self.player.playstate == PlayState.PLAYING:

@@ -15,7 +15,7 @@ import networkx as nx
 import pydotplus
 from networkx.drawing.nx_pydot import graphviz_layout
 
-import plotly.graph_objs as go
+import logging
 
 
 def plot_graph(G):
@@ -77,7 +77,9 @@ def plot_graph(G):
 		node_trace['x'].append(x)
 		node_trace['y'].append(y)
 
-		node_info = str(node)
+		node_info = "Visits: +{0}<br>Rewards: {1}<br>Score: {2}".format(node.visits, node.reward, node.state.get_score(
+			node.state.game.players[node.root.state.current_player_id]))
+
 
 		node_trace['text'].append(node_info)
 
@@ -113,6 +115,7 @@ class Node:
 		self.tried_moves = set()
 
 		self.is_terminal = False
+
 
 	def not_expanded(self):
 		return len(self.available_moves - self.tried_moves) > 0
@@ -152,9 +155,12 @@ class Node:
 
 		return u_new
 
-	def best_child(self, c=2):
+	def best_child(self, c=2, h=10):
 
-		ucb1 = lambda u: u.reward / u.visits + c * math.sqrt(math.log(self.root.visits / u.visits))
+		ucb1 = lambda u: (u.reward / u.visits
+						  + c * math.sqrt(math.log(self.root.visits / u.visits))
+						  + h * u.state.get_score(u.state.game.players[u.root.state.current_player_id]) / u.visits
+						  )
 		best = max(self.children, key=ucb1)
 
 		return best
@@ -190,7 +196,12 @@ def uct_search(state: HearthState, timeout=20):
 		# back propagation
 		backup(u_next, delta)
 
-	print("Runs: ", root.visits)
+	logging.getLogger('fireplace').setLevel('DEBUG')
+	state.game.log("{} visited {} nodes.".format(state.game.current_player.name, root.visits))
+	logging.getLogger('fireplace').setLevel('WARNING')
+
+	# py.plot(plot_graph(graph))
+	# input("Press enter to continue...")
 
 	return root
 
@@ -212,7 +223,6 @@ def tree_policy(u: Node):
 
 
 def default_policy(u: Node):
-	my_name = u.root.state.game.players[0].name
 
 	if u.non_terminal():
 		new_state = u.state.clone()
@@ -224,15 +234,13 @@ def default_policy(u: Node):
 	else:
 		new_state = u.state
 
-	if new_state.game.players[0].name == my_name:
-		if new_state.game.players[0].playstate == PlayState.WON:
-			return 1
-		elif new_state.game.players[0].playstate == PlayState.LOST:
-			return 0
-	else:
-		if new_state.game.players[1].playstate == PlayState.WON:
-			return 1
-		elif new_state.game.players[1].playstate == PlayState.LOST:
-			return 0
+	my_id = u.root.state.current_player_id
 
-	return 0
+	if new_state.game.players[my_id].playstate == PlayState.WON:
+		return 1
+	elif new_state.game.players[my_id].playstate == PlayState.LOST:
+		return 0
+	elif new_state.game.players[my_id].playstate == PlayState.TIED:
+		return 0
+	else:
+		raise ValueError

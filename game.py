@@ -17,7 +17,7 @@ def setup_game() -> (Game, (Agent, Agent)):
 	agent1 = MonteCarloAgent(CardClass.WARRIOR)
 	agent2 = GameStateAgent(CardClass.PALADIN)
 
-	print(agent1.player, agent2.player)
+	print(agent1.player, " vs ", agent2.player)
 
 	game = Game(players=(agent1.player, agent2.player))
 
@@ -40,7 +40,11 @@ def main():
 	try:
 		while True:
 			agent_playing = agents[0] if agents[0].is_playing() else agents[1]
+			game.log("{} thinking...".format(agent_playing.get_name()))
+			time_start = time.time()
 			agent_playing.play_turn()
+			game.log("{} took {} seconds".format(agent_playing.get_name(), time.time() - time_start))
+
 
 	except GameOver:
 		print("{} ({}) won".format(agent_playing.name, agent_playing.player.hero))
